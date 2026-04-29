@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"rest-api/internal/database/repositories"
+	"rest-api/internal/models"
 	"strings"
 
 	"github.com/google/uuid"
@@ -58,6 +59,34 @@ func (h *TaskHandler) GetById(w http.ResponseWriter, req *http.Request) {
 
 	if task == nil {
 		respondWithError(w, http.StatusNotFound, "Task not found")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, task)
+}
+
+func (h *TaskHandler) Create(w http.ResponseWriter, req *http.Request) {
+	var input models.CreateTask
+
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error occured while decoding body")
+		return
+	}
+
+	if strings.TrimSpace(input.Description) == "" {
+		respondWithError(w, http.StatusBadRequest, "Description can not be empty")
+		return
+	}
+
+	if len(input.Description) > 200 {
+		respondWithError(w, http.StatusBadRequest, "Description length can not be longer than 200 symbols")
+		return
+	}
+
+	task, err := h.repo.Create(input)
+
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Error occured while creating task")
 		return
 	}
 

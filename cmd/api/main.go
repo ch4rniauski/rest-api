@@ -25,6 +25,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/tasks", methodHandler(taskHandler.GetAll, http.MethodGet))
+	mux.HandleFunc("/tasks", methodHandler(taskHandler.Create, http.MethodPost))
 	mux.HandleFunc("/tasks/", methodHandler(taskHandler.GetById, http.MethodGet))
 
 	err = http.ListenAndServe(":8080", mux)

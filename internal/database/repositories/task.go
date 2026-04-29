@@ -17,7 +17,7 @@ func NewTaskRepo(db *sqlx.DB) *TaskRepo {
 	return &TaskRepo{db: db}
 }
 
-func (s *TaskRepo) GetAll() ([]models.Task, error) {
+func (r *TaskRepo) GetAll() ([]models.Task, error) {
 	var tasks []models.Task
 
 	query := `
@@ -25,7 +25,7 @@ func (s *TaskRepo) GetAll() ([]models.Task, error) {
 		FROM tasks;
 	`
 
-	err := s.db.Select(&tasks, query)
+	err := r.db.Select(&tasks, query)
 	if err != nil {
 		return nil, err
 	}
@@ -33,16 +33,16 @@ func (s *TaskRepo) GetAll() ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (s *TaskRepo) GetById(id uuid.UUID) (*models.Task, error) {
+func (r *TaskRepo) GetById(id uuid.UUID) (*models.Task, error) {
 	var task models.Task
 
 	query := `
 		SELECT *
 		FROM tasks
-		WHERE id = $1
+		WHERE id = $1;
 	`
 
-	err := s.db.Get(&task, query, id)
+	err := r.db.Get(&task, query, id)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -54,20 +54,42 @@ func (s *TaskRepo) GetById(id uuid.UUID) (*models.Task, error) {
 	return &task, nil
 }
 
-func (s *TaskRepo) Create(inputTask models.CreateTask) (*models.Task, error) {
+func (r *TaskRepo) Create(inputTask models.CreateTask) (*models.Task, error) {
 	var task models.Task
 
 	query := `
 		INSERT INTO tasks (id, title, description, created_at, is_completed)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, title, description, created_at, is_completed
+		RETURNING id, title, description, created_at, is_completed;
 	`
 
 	created_at := time.Now()
 	id := uuid.New()
 
-	err := s.db.QueryRowx(query, id, inputTask.Title, inputTask.Description, created_at, false).StructScan(&task)
+	err := r.db.QueryRowx(query, id, inputTask.Title, inputTask.Description, created_at, false).StructScan(&task)
 
+	if err != nil {
+		return nil, err
+	}
+
+	return &task, nil
+}
+
+func (r *TaskRepo) Update(id uuid.UUID, input models.UpdateTask) (*models.Task, error) {
+	var task models.Task
+
+	query := `
+		UPDATE tasks
+		SET title = $1, description = $2, is_completed = $3
+		WHERE id = $4
+		RETURNING id, title, description, created_at, is_completed;
+	`
+
+	err := r.db.QueryRowx(query, input.Title, input.Description, input.IsCompleted, id).StructScan(&task)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
