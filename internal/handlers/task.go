@@ -52,13 +52,13 @@ func (h *TaskHandler) GetById(w http.ResponseWriter, req *http.Request) {
 
 	task, err := h.repo.GetById(id)
 
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve task")
+	if task == nil && err == nil {
+		respondWithError(w, http.StatusNotFound, "Task was not found")
 		return
 	}
 
-	if task == nil {
-		respondWithError(w, http.StatusNotFound, "Task not found")
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve task")
 		return
 	}
 
@@ -87,6 +87,39 @@ func (h *TaskHandler) Create(w http.ResponseWriter, req *http.Request) {
 
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Error occured while creating task")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, task)
+}
+
+func (h *TaskHandler) Update(w http.ResponseWriter, req *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(req.URL.RawPath, "/tasks/"), "/")
+	idStr := pathParts[0]
+
+	id, err := uuid.Parse(idStr)
+
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid task ID")
+		return
+	}
+
+	var input models.UpdateTask
+
+	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error occured while decoding body")
+		return
+	}
+
+	task, err := h.repo.Update(id, input)
+
+	if task == nil && err != nil {
+		respondWithError(w, http.StatusNotFound, "Task was not found")
+		return
+	}
+
+	if err == nil {
+		respondWithError(w, http.StatusInternalServerError, "Error occured while updating task")
 		return
 	}
 
