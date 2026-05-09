@@ -29,7 +29,7 @@ func respondWithError(w http.ResponseWriter, statusCode int, message string) {
 }
 
 func (h *TaskHandler) GetAll(w http.ResponseWriter, req *http.Request) {
-	tasks, err := h.repo.GetAll()
+	tasks, err := h.repo.GetAll(req.Context())
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve tasks")
@@ -50,7 +50,7 @@ func (h *TaskHandler) GetById(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	task, err := h.repo.GetById(id)
+	task, err := h.repo.GetById(req.Context(), id)
 
 	if task == nil && err == nil {
 		respondWithError(w, http.StatusNotFound, "Task was not found")
@@ -83,7 +83,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	task, err := h.repo.Create(input)
+	task, err := h.repo.Create(req.Context(), input)
 
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Error occured while creating task")
@@ -111,7 +111,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	task, err := h.repo.Update(id, input)
+	task, err := h.repo.Update(req.Context(), id, input)
 
 	if task == nil && err != nil {
 		respondWithError(w, http.StatusNotFound, "Task was not found")
