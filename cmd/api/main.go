@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"log"
@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	dbUrl := "postgres://postgres:5432@localhost:5432/RestApi"
+	dbUrl := "postgres://postgres:5432@postgres:5432/RestApi?sslmode=disable"
 
 	db, err := database.Connect(dbUrl)
 
@@ -29,10 +29,27 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/tasks", methodHandler(taskHandler.GetAll, http.MethodGet, mws...))
-	mux.HandleFunc("/tasks", methodHandler(taskHandler.Create, http.MethodPost, mws...))
-	mux.HandleFunc("/tasks/", methodHandler(taskHandler.GetById, http.MethodGet, mws...))
-	mux.HandleFunc("/tasks/", methodHandler(taskHandler.Update, http.MethodPut, mws...))
+	mux.HandleFunc("/tasks", func(w http.ResponseWriter, req *http.Request) {
+        switch req.Method {
+        case http.MethodGet:
+            methodHandler(taskHandler.GetAll, http.MethodGet, mws...)(w, req)
+        case http.MethodPost:
+            methodHandler(taskHandler.Create, http.MethodPost, mws...)(w, req)
+        default:
+            http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        }
+    })
+
+    mux.HandleFunc("/tasks/", func(w http.ResponseWriter, req *http.Request) {
+        switch req.Method {
+        case http.MethodGet:
+            methodHandler(taskHandler.GetById, http.MethodGet, mws...)(w, req)
+        case http.MethodPut:
+            methodHandler(taskHandler.Update, http.MethodPut, mws...)(w, req)
+        default:
+            http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+        }
+    })
 
 	err = http.ListenAndServe(":8080", mux)
 
