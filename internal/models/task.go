@@ -20,7 +20,7 @@ type CreateTask struct {
 }
 
 type UpdateTask struct {
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	IsCompleted bool      `json:"is_completed"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	IsCompleted bool   `json:"is_completed"`
 }
