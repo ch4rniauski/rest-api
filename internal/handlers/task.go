@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"rest-api/internal/database/repositories"
 	"rest-api/internal/models"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v5"
 )
 
 type TaskHandler struct {
@@ -18,110 +18,119 @@ func NewTaskHandler(repo *repositories.TaskRepo) *TaskHandler {
 	return &TaskHandler{repo: repo}
 }
 
-func respondWithJson(w http.ResponseWriter, statusCode int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(payload)
+func RegisterRoutes(e *echo.Echo, repo *repositories.TaskRepo) {
+	h := NewTaskHandler(repo)
+
+	e.GET("/tasks", h.GetAll)
+	e.POST("/tasks", h.Create)
+
+	e.GET("/tasks/:id", h.GetById)
+	e.PUT("/tasks/:id", h.Update)
+	e.PATCH("/tasks/:id", h.Update)
 }
 
-func respondWithError(w http.ResponseWriter, statusCode int, message string) {
-	respondWithJson(w, statusCode, map[string]string{"error": message})
-}
-
-func (h *TaskHandler) GetAll(w http.ResponseWriter, req *http.Request) {
-	tasks, err := h.repo.GetAll(req.Context())
+func (h *TaskHandler) GetAll(c *echo.Context) error {
+	tasks, err := h.repo.GetAll(c.Request().Context())
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve tasks")
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to retrieve tasks",
+		})
 	}
 
-	respondWithJson(w, http.StatusOK, tasks)
+	return c.JSON(http.StatusOK, tasks)
 }
 
-func (h *TaskHandler) GetById(w http.ResponseWriter, req *http.Request) {
-	pathParts := strings.Split(strings.TrimPrefix(req.URL.RawPath, "/tasks/"), "/")
-	idStr := pathParts[0]
+func (h *TaskHandler) GetById(c *echo.Context) error {
+	idStr := c.Param("id")
 
 	id, err := uuid.Parse(idStr)
-
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid task ID")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid task ID",
+		})
 	}
 
-	task, err := h.repo.GetById(req.Context(), id)
+	task, err := h.repo.GetById(c.Request().Context(), id)
 
 	if task == nil && err == nil {
-		respondWithError(w, http.StatusNotFound, "Task was not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "Task was not found",
+		})
 	}
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to retrieve task")
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to retrieve task",
+		})
 	}
 
-	respondWithJson(w, http.StatusOK, task)
+	return c.JSON(http.StatusOK, task)
 }
 
-func (h *TaskHandler) Create(w http.ResponseWriter, req *http.Request) {
+func (h *TaskHandler) Create(c *echo.Context) error {
 	var input models.CreateTask
 
-	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error occured while decoding body")
-		return
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
 	}
 
 	if strings.TrimSpace(input.Description) == "" {
-		respondWithError(w, http.StatusBadRequest, "Description can not be empty")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Description can not be empty",
+		})
 	}
 
 	if len(input.Description) > 200 {
-		respondWithError(w, http.StatusBadRequest, "Description length can not be longer than 200 symbols")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Description length can not be longer than 200 symbols",
+		})
 	}
 
-	task, err := h.repo.Create(req.Context(), input)
+	task, err := h.repo.Create(c.Request().Context(), input)
 
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Error occured while creating task")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Error occured while creating task",
+		})
 	}
 
-	respondWithJson(w, http.StatusOK, task)
+	return c.JSON(http.StatusCreated, task)
 }
 
-func (h *TaskHandler) Update(w http.ResponseWriter, req *http.Request) {
-	pathParts := strings.Split(strings.TrimPrefix(req.URL.RawPath, "/tasks/"), "/")
-	idStr := pathParts[0]
+func (h *TaskHandler) Update(c *echo.Context) error {
+	idStr := c.Param("id")
 
 	id, err := uuid.Parse(idStr)
-
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid task ID")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid task ID",
+		})
 	}
 
 	var input models.UpdateTask
 
-	if err := json.NewDecoder(req.Body).Decode(&input); err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error occured while decoding body")
-		return
+	if err := c.Bind(&input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request body",
+		})
 	}
 
-	task, err := h.repo.Update(req.Context(), id, input)
+	task, err := h.repo.Update(c.Request().Context(), id, input)
 
-	if task == nil && err != nil {
-		respondWithError(w, http.StatusNotFound, "Task was not found")
-		return
+	if task == nil && err == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "Task was not found",
+		})
 	}
 
-	if err == nil {
-		respondWithError(w, http.StatusInternalServerError, "Error occured while updating task")
-		return
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Error occured while updating task",
+		})
 	}
 
-	respondWithJson(w, http.StatusOK, task)
+	return c.JSON(http.StatusOK, task)
 }

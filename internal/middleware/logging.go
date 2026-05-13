@@ -2,18 +2,24 @@ package middleware
 
 import (
 	"log"
-	"net/http"
 	"time"
+
+	"github.com/labstack/echo/v5"
 )
 
-func Logging(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+func Logging(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c *echo.Context) error {
 		start := time.Now()
 		log.Print(start)
-
-		next.ServeHTTP(w, req)
+		
+		err := next(c)
+		if err != nil {
+			log.Print(err)
+		}
 		
 		end := time.Now()
 		log.Print(end)
-	})
+
+		return err
+	}
 }
